@@ -2,7 +2,8 @@
 
 This repository contains utility tools to attack a challenge of learning an "_optical model_" for Liquid Argon Time Projection Chambers.
 
-If you would like to jump onto a code example, refer to [this page](https://web.stanford.edu/~kterao/HowTo.html) or try running `HowTo.ipynb` with `jupyter` (not in the `requirements.txt`).
+If you would like to jump onto a code example, refer to [this page](https://web.stanford.edu/~kterao/HowTo.html).
+
 ## Background
 Due to complex geometry and a time-consuming ray tracing procedure, many experiments do not simulate every single step of photon propagation process in a detector for every physics simulation. 
 Instead, in many cases, experiments use a "look up table", which contains a probability for a photon produced at any position to be detected by an optical detector.
@@ -13,8 +14,9 @@ The result is a look-up table, which records a 1D array of probability (length =
 In a specific instance of ICARUS experiment, the number of voxels are (74,77,394) along (x,y,z), or 2245012 voxels total.
 
 ## What's in here?
-`photon_library.py` contains a Python class API to interact with the look up table. Please see [this page](https://web.stanford.edu/~kterao/HowTo.html) for a quick instructions or try running `HowTo.ipynb` with `jupyter` (not in the `requirements.txt`).
 
+`photon_library.py` contains a Python class API to interact with the look up table. Please see [this page](https://web.stanford.edu/~kterao/HowTo.html) for a quick introduction. 
+Also included is `siren_test.py`, a [SIREN](https://vsitzmann.github.io/siren/) architecture with modified support functions to adapt the network for voxel detector inputs.
 
 ## Challenge
 
