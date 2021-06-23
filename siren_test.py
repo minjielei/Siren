@@ -16,14 +16,6 @@ from photon_library import PhotonLibrary
 
 # Example syntax:
 # run siren_test.py --max_x 3 --output_dir result_61621 --experiment_name first_test
-# run siren_test.py --max_x 3 --output_dir result_61821 --experiment_name normalized_dataset
-# run siren_test.py --max_x 4 --num_epoch 100000 --epochs_til_ckpt 1000 --output_dir result_61921 --experiment_name epoch_100k_normalized 
-
-
-# TODO STILL
-# [1] Make image functions in Util
-# [2] Make dictionary objects for the derivatives of each function
-# [3] Implement ACORN localized batch system
 
 # Configure Arguments
 p = configargparse.ArgumentParser()
@@ -93,10 +85,8 @@ for s in range(opt.max_x, opt.min_x, -1 * opt.skip_x):
 
     coord_real.requires_grad = False
     
-    # I want to work with dictionary of tensor objects for now. If I forget why by tomorrow, scrap for just tensors. Need updates in modules, utils and loss_functions if I switch
     coord_real = {'coords': coord_real}
     
-    # TODO: Make model functions for SINE and ACORN
     print('Assigning Model...')
     model = modules.Siren(in_features=3, out_features=1, hidden_features=256, hidden_layers=1, outermost_linear=True)
     model = model.float()
@@ -109,7 +99,6 @@ for s in range(opt.max_x, opt.min_x, -1 * opt.skip_x):
     dataloader = DataLoader(train_data, shuffle=True, batch_size=opt.batch_size, pin_memory=False, num_workers=0)
     
     print('At loss')
-#     loss = loss_functions.image_mse_FH_prior(opt.kl_weight, model, model_output, data)
     loss = loss_functions.image_mse_TV_prior(opt.kl_weight, model, model_output, data)
 
     print('Training...')
