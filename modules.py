@@ -4,7 +4,7 @@ from torch import nn
 import numpy as np
 import math
 
-## TODO: Make Sine Layer
+
 class Sine(nn.Module):
     def __init__(self, in_features, out_features, first_layer, bias=True, omega=30):
         super().__init__()
@@ -19,8 +19,6 @@ class Sine(nn.Module):
         return torch.sin(self.omega * self.linear(input))
 
 
-    ## TODO: Init Sine Network
-
     def sine_init(self):
         with torch.no_grad():
             if self.first_layer:
@@ -30,7 +28,6 @@ class Sine(nn.Module):
                 self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega, np.sqrt(6 / self.in_features) / self.omega)
 
 
-## TODO: Make SIREN Network Model:
 class Siren(nn.Module):
     def __init__(self, in_features, hidden_features, hidden_layers, out_features, outermost_linear=False, omega=30):
         super().__init__()
@@ -59,7 +56,5 @@ class Siren(nn.Module):
         output = self.net(coords.float())
         return {'model_out' : output, 'model_in' : coords}
 
-
-    ## TODO: Make ACORN Network Model:
 
 
