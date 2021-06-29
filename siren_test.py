@@ -14,8 +14,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 from photon_library import PhotonLibrary
 
+
 # Example syntax:
-# run siren_test.py --max_x 3 --output_dir result_61621 --experiment_name first_test
+# run siren_test.py --output_dir result_62821 --experiment_name first_test --num_epochs 400
 
 # Configure Arguments
 p = configargparse.ArgumentParser()
@@ -52,21 +53,33 @@ opt = p.parse_args()
 # Load plib dataset
 print('Load data ...')
 plib = PhotonLibrary()
-full_data = plib.numpy() # data_shape
+full_data = plib.numpy() 
 
 opt.min_x = min(opt.min_x, opt.max_x - 1)
-for s in range(opt.max_x, opt.min_x, -1 * opt.skip_x):
-    print('Starting to slice...')
+print('Starting to slice...')
+# for s in range(full_data.shape[0]):
+for s in range(1):
+
+    print('X-Slice: {}'.format(s))
+    slice_dir = 'xslice_{}'.format(s)
 
     output_dir = os.path.join(opt.output_dir, opt.experiment_name)
+    output_dir = os.path.join(output_dir, slice_dir)
+
     weight_path = os.path.join(opt.output_dir, '_weights.pth')
 
-    data = full_data[:s, :, :, :]
+    data = full_data[s, :, :, :]
+    label = full_data
     data_shape = data.shape[0:-1]
+    data_shape = list(data_shape)
+    data_shape.insert(0, 1)
+    data_shape = tuple(data_shape)
 
     data = np.expand_dims(np.reshape(data, (-1, data.shape[-1])), axis=0)
     data = np.expand_dims(np.sum(data, -1), axis=-1)
-    data = (data - np.amin(data)) / (np.amax(data) - np.amin(data)) - 0.5
+#     data = (data - np.amin(data)) / (np.amax(data) - np.amin(data)) - 0.5
+    data = (data - np.amin(data)) / (np.amax(data) - np.amin(data))
+
     print('about to call cuda')
     data = torch.from_numpy(data.astype(np.float32)).cuda()
     print('Cuda finished')
@@ -91,12 +104,17 @@ for s in range(opt.max_x, opt.min_x, -1 * opt.skip_x):
     model = modules.Siren(in_features=3, out_features=1, hidden_features=256, hidden_layers=1, outermost_linear=True)
     model = model.float()
     model.cuda()
-    print('at the dataloader')
     model_output= model(coord_real['coords'])
 
     train_data = utils.DataWrapper(model_output, data_shape, data)
     
-    dataloader = DataLoader(train_data, shuffle=True, batch_size=opt.batch_size, pin_memory=False, num_workers=0)
+    # Make weights
+    weight = utils.make_weights(data['coords'][0,:,0])
+    sampler = torch.utils.data.sampler.WeightedRandomSampler(weight.type('torch.FloatTensor'), len(weight))
+    print('at the dataloader')
+
+#     dataloader = DataLoader(train_data, shuffle=True, batch_size=opt.batch_size, pin_memory=False, num_workers=4)
+    dataloader = DataLoader(train_data, batch_size=opt.batch_size, sampler=sampler, pin_memory=False, num_workers=4)
     
     print('At loss')
     loss = loss_functions.image_mse_TV_prior(opt.kl_weight, model, model_output, data)
