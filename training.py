@@ -7,7 +7,7 @@ import time
 import numpy as np
 import os
 import shutil
-import loss_functions
+import loss_functions, utils
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 
@@ -37,9 +37,8 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     total_steps = 0
     train_losses = []
     for epoch in range(epochs):
-        if not epoch % 100:
-            print('epoch:', epoch )
         if not epoch % epochs_til_checkpoint and epoch:
+            print('epoch:', epoch )
             torch.save(model.state_dict(),
                        os.path.join(checkpoints_dir, 'model_epoch_%04d.pth' % epoch))
             np.savetxt(os.path.join(checkpoints_dir, 'train_losses_epoch_%04d.txt' % epoch),
@@ -50,14 +49,14 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
             
             
             model_input = {key: value.cuda() for key, value in model_input.items()}
-#             gt = {key: value.cuda() for key, value in gt.items()}
-
 
             model_output = model(model_input['coords'])
-    # If interested in FH Prior, need to update to be able to toggle between different loss functions.
-#             losses = loss_functions.image_mse_FH_prior(1e-1, model, model_output, gt)
+            
+            if not epoch%1000:
+                model_output['model_out'] = utils.attach_tensor(utils.detach_tensor(model_output['model_out'], data_shape))
+
             losses = loss_functions.image_mse_TV_prior(1e-1, model, model_output, gt)
-    
+
     
             train_loss = 0.
             for loss_name, loss in losses.items():
@@ -105,12 +104,15 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
                np.array(train_losses))
     
     #Plot and save loss
-    plt.plot(total_steps, train_losses)
+    x_steps = np.linspace(0, total_steps, num=total_steps)
+    plt.figure(tight_layout=True)
+    plt.plot(x_steps, train_losses)
     plt.ylabel('Loss')
     plt.yscale('log')
     plt.xlabel('Iteration')
     plt_name = os.path.join(model_dir, 'total_loss.png')
-    plt.savefig(plt_name)
+    plt.savefig(plt_name, dpi=300, bbox_inches='tight')
+    plt.clf()
     
     
     # Make images
@@ -126,28 +128,27 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     diff = np.sum(abs(ground_truth_video - predict_video), axis=(1,2,3))
     ground_truth_video = np.uint8((ground_truth_video * 1.0 + 0.5) * 255)
     predict_video = np.uint8((predict_video * 1.0 + 0.5) * 255)
-#     render_video = np.concatenate((ground_truth_video, predict_video), axis=1)
+    render_video = np.concatenate((ground_truth_video, predict_video), axis=1)
 
     for step in range(predict_video.shape[0]):
-#         im_name = os.path.join(model_dir, '{:05d}.png'.format(step))
+        im_name = os.path.join(model_dir, '{:05d}.png'.format(step))
         gt_name = os.path.join(model_dir, '{:05d}_gt.png'.format(step))
         pred_name = os.path.join(model_dir, '{:05d}_pred.png'.format(step))
 
 
-#         im_render = Image.fromarray(np.squeeze(render_video[step], -1) , 'L').convert('RGB')
+        im_render = Image.fromarray(np.squeeze(render_video[step], -1) , 'L').convert('RGB')
         gt_im = Image.fromarray(np.squeeze(ground_truth_video[step],-1), 'L').convert('RGB')
         pred_im = Image.fromarray(np.squeeze(predict_video[step],-1), 'L').convert('RGB')
 
         
         gt_draw = ImageDraw.Draw(gt_im)
         pred_draw = ImageDraw.Draw(pred_im)
-#         draw = ImageDraw.Draw(im_render)
-    #         font = ImageFont.truetype("./font/Arsenal-Regular.otf", 16)
-#         draw.text((0, 0), "{:.2f}".format(diff[step]), (255,0,0))
+        draw = ImageDraw.Draw(im_render)
+        draw.text((0, 0), "{:.2f}".format(diff[step]), (255,0,0))
 
-#         im_render.save(im_name, 'png')
-        gt_im.save(gt_name, 'png')
-        pred_im.save(pred_name, 'png')
+        im_render.save(im_name)
+        gt_im.save(gt_name)
+        pred_im.save(pred_name)
 
 
 
@@ -159,3 +160,5 @@ class LinearDecaySchedule():
 
     def __call__(self, iter):
         return self.start_val + (self.final_val - self.start_val) * min(iter / self.num_steps, 1.)
+
+    
