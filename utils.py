@@ -165,7 +165,7 @@ def box_blur(image):
 
 def make_weights(in_tensor):
 
-    weight = torch.histc(in_tensor, bins=256, min = 0, max = 1)
+    weight = torch.histc(in_tensor, bins=256, min = -0.5, max = 0.5)
     weight = 1/(weight+1e-3)
     
     return weight
