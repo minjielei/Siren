@@ -1,6 +1,7 @@
 # Enable import from parent package
 import sys
 import os
+import time
 sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
 
 import loss_functions, modules, training, utils
@@ -16,7 +17,7 @@ from photon_library import PhotonLibrary
 
 
 # Example syntax:
-# run siren_test.py --output_dir result_62821 --experiment_name first_test --num_epochs 400
+# run siren_test.py --output_dir result_7621 --experiment_name test
 
 # Configure Arguments
 p = configargparse.ArgumentParser()
@@ -40,7 +41,7 @@ p.add_argument('--num_epochs', type=int, default=20000,
 p.add_argument('--kl_weight', type=float, default=1e-1,
                help='Weight for l2 loss term on code vectors z (lambda_latent in paper).')
 
-p.add_argument('--epochs_til_ckpt', type=int, default=10,
+p.add_argument('--epochs_til_ckpt', type=int, default=1000,
                help='Time interval in seconds until checkpoint is saved.')
 p.add_argument('--steps_til_summary', type=int, default=1000,
                help='Time interval in seconds until tensorboard summary is saved.')
@@ -49,6 +50,7 @@ p.add_argument('--checkpoint_path', default=None, help='Checkpoint to trained mo
 
 opt = p.parse_args()
 
+start = time.time()
 
 # Load plib dataset
 print('Load data ...')
@@ -56,10 +58,11 @@ plib = PhotonLibrary()
 full_data = plib.numpy() 
 
 opt.min_x = min(opt.min_x, opt.max_x - 1)
-print('Starting to slice...')
-# for s in range(full_data.shape[0]):
-for s in range(1):
 
+print('Starting to slice...')
+for s in range(full_data.shape[0]):
+
+    start2 = time.time()
     print('X-Slice: {}'.format(s))
     slice_dir = 'xslice_{}'.format(s)
 
@@ -69,7 +72,6 @@ for s in range(1):
     weight_path = os.path.join(opt.output_dir, '_weights.pth')
 
     data = full_data[s, :, :, :]
-    label = full_data
     data_shape = data.shape[0:-1]
     data_shape = list(data_shape)
     data_shape.insert(0, 1)
@@ -77,8 +79,7 @@ for s in range(1):
 
     data = np.expand_dims(np.reshape(data, (-1, data.shape[-1])), axis=0)
     data = np.expand_dims(np.sum(data, -1), axis=-1)
-#     data = (data - np.amin(data)) / (np.amax(data) - np.amin(data)) - 0.5
-    data = (data - np.amin(data)) / (np.amax(data) - np.amin(data))
+    data = -np.log(data+1e-7)
 
     print('about to call cuda')
     data = torch.from_numpy(data.astype(np.float32)).cuda()
@@ -108,21 +109,22 @@ for s in range(1):
 
     train_data = utils.DataWrapper(model_output, data_shape, data)
     
-    # Make weights
+#     Make weights
     weight = utils.make_weights(data['coords'][0,:,0])
-    sampler = torch.utils.data.sampler.WeightedRandomSampler(weight.type('torch.FloatTensor'), len(weight))
     print('at the dataloader')
 
-#     dataloader = DataLoader(train_data, shuffle=True, batch_size=opt.batch_size, pin_memory=False, num_workers=4)
-    dataloader = DataLoader(train_data, batch_size=opt.batch_size, sampler=sampler, pin_memory=False, num_workers=4)
+    dataloader = DataLoader(train_data, shuffle=True, batch_size=opt.batch_size, pin_memory=False, num_workers=0)
     
-    print('At loss')
-    loss = loss_functions.image_mse_TV_prior(opt.kl_weight, model, model_output, data)
+    loss = loss_functions.image_weighted_mse_TV_prior(opt.kl_weight, model, model_output, data, weight)
 
     print('Training...')
     training.train(model=model, train_dataloader=dataloader, epochs=opt.num_epochs, lr=opt.lr,
                    steps_til_summary=opt.steps_til_summary, epochs_til_checkpoint=opt.epochs_til_ckpt,
-                   model_dir=output_dir, data_shape=data_shape, loss_fn=loss)
+                   model_dir=output_dir, data_shape=data_shape, loss_fn=loss, weight=weight)
     
+    end = time.time()
+    print('Delta Time: {}'.format(end-start2))
     print('Complete. :)')
-
+    
+end = time.time()
+print('Delta Time: {}'.format(end-start))
