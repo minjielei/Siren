@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 
-def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, data_shape, loss_fn, loss_schedules=None):
+def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, data_shape, loss_fn, loss_schedules=None, weight=1):
 
     optim = torch.optim.Adam(lr=lr, params=model.parameters())
 
@@ -52,11 +52,7 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
 
             model_output = model(model_input['coords'])
             
-            if not epoch%1000:
-                model_output['model_out'] = utils.attach_tensor(utils.detach_tensor(model_output['model_out'], data_shape))
-
-            losses = loss_functions.image_mse_TV_prior(1e-1, model, model_output, gt)
-
+            losses = loss_functions.image_weighted_mse_TV_prior(1e-1, model, model_output, gt, weight)
     
             train_loss = 0.
             for loss_name, loss in losses.items():
@@ -75,26 +71,11 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
             if not total_steps % steps_til_summary:
                 torch.save(model.state_dict(),
                            os.path.join(checkpoints_dir, 'model_current.pth'))
-#                 summary_fn(model, model_input, gt, model_output, writer, total_steps)
+
 
             optim.zero_grad()
             train_loss.backward()
             optim.step()
-
-            # if not total_steps % steps_til_summary:
-            #
-            #     if val_dataloader is not None:
-            #         print("Running validation set...")
-            #         model.eval()
-            #         with torch.no_grad():
-            #             val_losses = []
-            #             for (model_input, gt) in val_dataloader:
-            #                 model_output = model(model_input)
-            #                 val_loss = loss_fn(model_output, gt)
-            #                 val_losses.append(val_loss)
-            #
-            #             writer.add_scalar("val_loss", np.mean(val_losses), total_steps)
-            #         model.train()
 
             total_steps += 1
 
@@ -115,6 +96,7 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     plt.clf()
     
     
+    
     # Make images
     ground_truth_video = np.reshape(
           gt['coords'].cpu().detach().numpy(), 
@@ -124,7 +106,38 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
             model_output['model_out'].cpu().detach().numpy(), 
             (data_shape[0], data_shape[1], data_shape[2], -1)
         )
+    
+    # Plot pred plots
+    for step in range(predict_video.shape[0]):
+    #Plot y pred vs gt
+        pred = (predict_video[step]-predict_video[step].min())/(predict_video[step].max()-predict_video[step].min())
+        plt.figure(tight_layout=True)
+        plt.scatter(-np.log(ground_truth_video[step]+1e-7), -np.log(predict_video[step]+1e-7))        
+        plt.xlabel('Truth')
+        plt.ylabel('Pred')
+        plt_name = os.path.join(model_dir, 'pred_vs_truth.png')
+        plt.savefig(plt_name, dpi=300, bbox_inches='tight')
+        plt.clf()
 
+        # Histogram of value overlaps
+        plt.hist(pred.flatten(), alpha=0.5, label='predicted')
+        plt.hist(ground_truth_video[step].flatten(), alpha=0.5, label='ground truth')
+        plt.xlabel('Normalized Values')
+        plt.ylabel('Count')
+        plt.legend(loc='upper right')
+        plt_name = os.path.join(model_dir, 'histogram.png')
+        plt.savefig(plt_name)
+        plt.clf()
+        
+        # Normalized histogram
+        calc = (ground_truth_video[step] - pred)/(2*(ground_truth_video[step] + pred))
+        plt.hist(calc.flatten(), alpha=0.5)
+        plt.xlabel('(label-pred)/(label+pred)*2')
+        plt.ylabel('samples')
+        plt_name = os.path.join(model_dir, 'label-pred_normalized.png')
+        plt.savefig(plt_name)
+        plt.clf()
+        
     diff = np.sum(abs(ground_truth_video - predict_video), axis=(1,2,3))
     ground_truth_video = np.uint8((ground_truth_video * 1.0 + 0.5) * 255)
     predict_video = np.uint8((predict_video * 1.0 + 0.5) * 255)
@@ -151,7 +164,6 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
         pred_im.save(pred_name)
 
 
-
 class LinearDecaySchedule():
     def __init__(self, start_val, final_val, num_steps):
         self.start_val = start_val
@@ -161,4 +173,5 @@ class LinearDecaySchedule():
     def __call__(self, iter):
         return self.start_val + (self.final_val - self.start_val) * min(iter / self.num_steps, 1.)
 
+    
     
