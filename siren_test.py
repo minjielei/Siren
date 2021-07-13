@@ -1,4 +1,3 @@
-# Enable import from parent package
 import sys
 import os
 import time
@@ -17,7 +16,7 @@ from photon_library import PhotonLibrary
 
 
 # Example syntax:
-# run siren_test.py --output_dir result_7621 --experiment_name test
+# run siren_test.py --output_dir result_7621 --experiment_name playground
 
 # Configure Arguments
 p = configargparse.ArgumentParser()
@@ -80,6 +79,7 @@ for s in range(full_data.shape[0]):
     data = np.expand_dims(np.reshape(data, (-1, data.shape[-1])), axis=0)
     data = np.expand_dims(np.sum(data, -1), axis=-1)
     data = -np.log(data+1e-7)
+    data = (data - np.amin(data)) / (np.amax(data) - np.amin(data))
 
     print('about to call cuda')
     data = torch.from_numpy(data.astype(np.float32)).cuda()
