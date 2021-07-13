@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 
 
-
 def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, data_shape, loss_fn, loss_schedules=None, weight=1):
 
     optim = torch.optim.Adam(lr=lr, params=model.parameters())
@@ -84,6 +83,7 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     np.savetxt(os.path.join(checkpoints_dir, 'train_losses_final.txt'),
                np.array(train_losses))
     
+    
     #Plot and save loss
     x_steps = np.linspace(0, total_steps, num=total_steps)
     plt.figure(tight_layout=True)
@@ -95,8 +95,7 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     plt.savefig(plt_name, dpi=300, bbox_inches='tight')
     plt.clf()
     
-    
-    
+
     # Make images
     ground_truth_video = np.reshape(
           gt['coords'].cpu().detach().numpy(), 
@@ -132,9 +131,10 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
         # Normalized histogram
         calc = (ground_truth_video[step] - pred)/(2*(ground_truth_video[step] + pred))
         plt.hist(calc.flatten(), alpha=0.5)
-        plt.xlabel('(label-pred)/(label+pred)*2')
+        plt.xlabel('asymmetry')
         plt.ylabel('samples')
-        plt_name = os.path.join(model_dir, 'label-pred_normalized.png')
+        plt.yscale('log')
+        plt_name = os.path.join(model_dir, 'asym.png')
         plt.savefig(plt_name)
         plt.clf()
         
