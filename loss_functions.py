@@ -34,7 +34,6 @@ def image_weighted_mse_TV_prior(k1, model, model_output, gt, weight):
                 rand_output['model_out'], rand_output['model_in']))).mean()}
 
 
-
 def image_mse_FH_prior(k1, model, model_output, gt):
     coords_rand = 2 * (torch.rand((model_output['model_in'].shape[0],
                                    model_output['model_in'].shape[1] // 2,
