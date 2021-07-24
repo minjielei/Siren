@@ -16,12 +16,20 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
 
     optim = torch.optim.Adam(lr=lr, params=model.parameters())
 
+    epoch_start = 0
+    
     if os.path.exists(model_dir):
-        val = input("The model directory %s exists. Overwrite? (y/n)" % model_dir)
-        if val == 'y':
-            shutil.rmtree(model_dir)
+        val = input("The model directory %s exists. Load latest run? (y/n)" % model_dir)
+    if val == 'y':
+        filename = utils.find_latest_checkpoint(model_dir)
+        model, optim, epoch_start, train_losses =  utils.load_checkpoint(model, optim, filename)
+        if val == 'n':
+            val = input("Would you prefer to overwrite {}? (y/n)" % model_dir)
+            if val == 'y':
+                shutil.rmtree(model_dir)
 
-    os.makedirs(model_dir)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
 
     summaries_dir = os.path.join(model_dir, 'summaries')
     if not os.path.exists(summaries_dir):
@@ -34,12 +42,19 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     writer = SummaryWriter(summaries_dir)
 
     total_steps = 0
-    train_losses = []
-    for epoch in range(epochs):
+    if not train_losses:
+        train_losses = []
+    for epoch in range(epoch_start, epochs):
         if not epoch % epochs_til_checkpoint and epoch:
             print('epoch:', epoch )
-            torch.save(model.state_dict(),
-                       os.path.join(checkpoints_dir, 'model_epoch_%04d.pth' % epoch))
+
+            torch.save({
+                        'epoch': epoch,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optim.state_dict(),
+                        'loss': train_losses,
+                        },  os.path.join(checkpoints_dir, 'model_epoch_%04d.pth' % epoch))
+        
             np.savetxt(os.path.join(checkpoints_dir, 'train_losses_epoch_%04d.txt' % epoch),
                        np.array(train_losses))
 
@@ -51,7 +66,11 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
 
             model_output = model(model_input['coords'])
             
-            losses = loss_functions.image_weighted_mse_TV_prior(1e-1, model, model_output, gt, weight)
+            # Smooth every 1000 steps
+#             if not step%1000-500:
+#                 model_output['model_out'] = utils.attach_tensor(utils.box_blur(utils.detach_tensor(mdoel_output, data_shape)))
+            
+            losses = loss_fn(model_output, gt)
     
             train_loss = 0.
             for loss_name, loss in losses.items():
@@ -73,7 +92,9 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
 
 
             optim.zero_grad()
+            train_loss.retain_grad()
             train_loss.backward()
+#             torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
             optim.step()
 
             total_steps += 1
@@ -83,7 +104,7 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     np.savetxt(os.path.join(checkpoints_dir, 'train_losses_final.txt'),
                np.array(train_losses))
     
-    
+    # TODO: migrate to utils file
     #Plot and save loss
     x_steps = np.linspace(0, total_steps, num=total_steps)
     plt.figure(tight_layout=True)
