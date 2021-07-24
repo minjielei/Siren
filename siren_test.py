@@ -5,10 +5,12 @@ sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) )
 
 import loss_functions, modules, training, utils
 from torch.utils.data import DataLoader
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from functools import partial
 import configargparse
 import torch
+import torch.nn as nn
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -16,7 +18,7 @@ from photon_library import PhotonLibrary
 
 
 # Example syntax:
-# run siren_test.py --output_dir result_7621 --experiment_name playground
+# run siren_test.py --output_dir result_72221 --batch_size 1 --experiment_name full_detector
 
 # Configure Arguments
 p = configargparse.ArgumentParser()
@@ -49,6 +51,8 @@ p.add_argument('--checkpoint_path', default=None, help='Checkpoint to trained mo
 
 opt = p.parse_args()
 
+
+device = list(range(torch.cuda.device_count()))
 start = time.time()
 
 # Load plib dataset
@@ -81,16 +85,17 @@ for s in range(full_data.shape[0]):
     data = -np.log(data+1e-7)
     data = (data - np.amin(data)) / (np.amax(data) - np.amin(data))
 
-    print('about to call cuda')
+    print('about to call cuda for first time...')
     data = torch.from_numpy(data.astype(np.float32)).cuda()
     print('Cuda finished')
     data.requires_grad = False
     data = {'coords': data}
-    
+
     x = np.linspace(0, data_shape[0] - 1, data_shape[0])
     y = np.linspace(0, data_shape[1] - 1, data_shape[1])
     z = np.linspace(0, data_shape[2] - 1, data_shape[2])
-    
+
+
     print('organizing coords')
     coordx, coordy, coordz = np.meshgrid(x, y, z)
     coord = np.reshape(np.stack([coordx, coordy, coordz], -1), (-1, 3))
@@ -98,33 +103,36 @@ for s in range(full_data.shape[0]):
     coord_real = torch.from_numpy(coord_real.astype(np.float32)).cuda()
 
     coord_real.requires_grad = False
-    
+    coord_real.cuda()
     coord_real = {'coords': coord_real}
-    
+
     print('Assigning Model...')
     model = modules.Siren(in_features=3, out_features=1, hidden_features=256, hidden_layers=1, outermost_linear=True)
     model = model.float()
+    model = nn.DataParallel(model, device_ids=device)
     model.cuda()
+
     model_output= model(coord_real['coords'])
 
     train_data = utils.DataWrapper(model_output, data_shape, data)
-    
-#     Make weights
+
+    # Make weights
     weight = utils.make_weights(data['coords'][0,:,0])
+    weight.cuda()
     print('at the dataloader')
 
     dataloader = DataLoader(train_data, shuffle=True, batch_size=opt.batch_size, pin_memory=False, num_workers=0)
-    
-    loss = loss_functions.image_weighted_mse_TV_prior(opt.kl_weight, model, model_output, data, weight)
+
+    loss = partial(loss_functions.image_mse)
 
     print('Training...')
     training.train(model=model, train_dataloader=dataloader, epochs=opt.num_epochs, lr=opt.lr,
                    steps_til_summary=opt.steps_til_summary, epochs_til_checkpoint=opt.epochs_til_ckpt,
                    model_dir=output_dir, data_shape=data_shape, loss_fn=loss, weight=weight)
-    
-    end = time.time()
-    print('Delta Time: {}'.format(end-start2))
-    print('Complete. :)')
+
+end = time.time()
+print('Delta Time: {}'.format(end-start2))
+print('Complete. :)')
     
 end = time.time()
 print('Delta Time: {}'.format(end-start))
