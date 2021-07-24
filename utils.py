@@ -1,4 +1,4 @@
-import os
+import os, glob
 import numpy as np
 from torch.utils.data import DataLoader
 import torch
@@ -71,7 +71,9 @@ class DataWrapper(DataLoader):
 
 def square_matrix(square):
     """ This function will calculate the value x
-       (i.e. blurred pixel value) for each 3 * 3 blur image.
+       (i.e. blurred pixel value) for each 3 * 3 blur image
+       as the mean average of the neighboring pixels and the
+       central pixel value.
     """
     tot_sum = 0
 
@@ -80,13 +82,18 @@ def square_matrix(square):
         for j in range(3):
             if i != 1 or j != 1:
                 tot_sum += square[i][j]
-        # mean average of the neighboring pixels and the pixel value in question
+                
     pixel_val = ((tot_sum // 8) + square[1][1]) // 2
 
-    return pixel_val  # return the average of the sum of pixels and the central pixel value.
+    return pixel_val  
 
 
 def concat_full_matrix(original, blur_img):
+    """
+    A helper function that combines the blurred image padded with
+    the original image around the border. Returning the same shape
+    as the original image.
+    """
     averaged_img = []
     n_row = len(original)
     n_col = len(original[0])
@@ -103,52 +110,27 @@ def concat_full_matrix(original, blur_img):
     
 def box_blur(image):
     """
-    This function will calculate the blurred 
-    image
+    This function will calculate the blurred image.
     """
-    square = []     # This will store the 3 * 3 matrix 
-                 # which will be used to find its blurred pixel
-                   
-    square_row = [] # This will store one row of a 3 * 3 matrix and 
-                    # will be appended in square
-                      
-    blur_row = []   # Here we will store the resulting blurred
-                    # pixels possible in one row 
-                    # and will append this in the blur_img
-      
-    blur_img = [] # This is the resulting blurred image
-      
-    # number of rows in the given image
-    n_row = len(image) 
-      
-    # number of columns in the given image
-    n_col = len(image[0]) 
-      
+    square, square_row, blur_row, blur_img = [], [], [], []
+
     # rp is row pointer and cp is column pointer
     rp, cp = 0, 0 
       
-    # This while loop will be used to 
-    # calculate all the blurred pixel in the first row 
-    while rp <= n_row - 3: 
-        while cp <= n_col-3:
+    while rp <= len(image) - 3: 
+        while cp <= len(image[0]) - 3:
               
             for i in range(rp, rp + 3):
                   
                 for j in range(cp, cp + 3):
                       
-                    # append all the pixels in a row of 3 * 3 matrix
                     square_row.append(image[i][j])
                       
-                # append the row in the square i.e. 3 * 3 matrix 
                 square.append(square_row)
                 square_row = []
               
-            # calculate the blurred pixel for given 3 * 3 matrix 
-            # i.e. square and append it in blur_row
             blur_row.append(square_matrix(square))
-            square = []
-              
-            # increase the column pointer
+            square = []             
             cp = cp + 1
           
         # append the blur_row in blur_image
@@ -157,15 +139,51 @@ def box_blur(image):
         rp = rp + 1 # increase row pointer
         cp = 0 # start column pointer from 0 again
         
-    # Now adjust padding around edges and reshape to original shape
+    # Adjust padding around edges and reshape to original shape
     new_img = concat_full_matrix(image, blur_img)
     # Return the resulting pixel matrix
     return new_img
  
 
 def make_weights(in_tensor):
+    """
+    A function that returns the appropriate weight vector to statistically
+    weight imbalanced data.
+    """
 
     weight = torch.histc(in_tensor, bins=256, min = -0.5, max = 0.5)
     weight = 1/(weight+1e-3)
     
     return weight
+
+
+def load_checkpoint(model, optimizer, filename='checkpoint.pth'):
+    """
+    This function will load the most current training checkpoint.
+    """
+    # Note: Input model & optimizer should be pre-defined.  This routine only updates their states.
+    start_epoch = 0
+    if os.path.isfile(filename):
+        print("=> loading checkpoint '{}'".format(filename))
+        checkpoint = torch.load(filename)
+        start_epoch = checkpoint['epoch']
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        losslogger = checkpoint['loss']
+        print("=> loaded checkpoint '{}' (epoch {})"
+                  .format(filename, checkpoint['epoch']))
+    else:
+        print("=> no checkpoint found at '{}'".format(filename))
+
+    return model, optimizer, start_epoch, losslogger
+
+
+def find_latest_checkpoint(model_dir):
+    """
+    This helper function finds the checkpoint with the largest
+    epoch value given a model directory.
+    """
+    tmp_dir = os.path.join(model_dir, 'checkpoints')
+    list_of_files = glob.glob(tmp_dir+'/model_epoch_*.pth') 
+    latest_file = max(list_of_files, key=os.path.getmtime)
+    return latest_file
