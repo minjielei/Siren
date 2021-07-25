@@ -17,16 +17,17 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     optim = torch.optim.Adam(lr=lr, params=model.parameters())
 
     epoch_start = 0
+    train_losses = []
     
-    if os.path.exists(model_dir):
+    if os.path.exists(model_dir+'/checkpoints'):
         val = input("The model directory %s exists. Load latest run? (y/n)" % model_dir)
-    if val == 'y':
-        filename = utils.find_latest_checkpoint(model_dir)
-        model, optim, epoch_start, train_losses =  utils.load_checkpoint(model, optim, filename)
-        if val == 'n':
-            val = input("Would you prefer to overwrite {}? (y/n)" % model_dir)
-            if val == 'y':
-                shutil.rmtree(model_dir)
+        if val == 'y':
+            filename = utils.find_latest_checkpoint(model_dir)
+            model, optim, epoch_start, train_losses =  utils.load_checkpoint(model, optim, filename)
+            if val == 'n':
+                val = input("Would you prefer to overwrite {}? (y/n)" % model_dir)
+                if val == 'y':
+                    shutil.rmtree(model_dir)
 
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
@@ -42,8 +43,6 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     writer = SummaryWriter(summaries_dir)
 
     total_steps = 0
-    if not train_losses:
-        train_losses = []
     for epoch in range(epoch_start, epochs):
         if not epoch % epochs_til_checkpoint and epoch:
             print('epoch:', epoch )
@@ -87,8 +86,12 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
             writer.add_scalar("total_train_loss", train_loss, total_steps)
 
             if not total_steps % steps_til_summary:
-                torch.save(model.state_dict(),
-                           os.path.join(checkpoints_dir, 'model_current.pth'))
+                torch.save({
+                        'epoch': epoch,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optim.state_dict(),
+                        'loss': train_losses,
+                        },  os.path.join(checkpoints_dir, 'model_current.pth'))
 
 
             optim.zero_grad()
