@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from functools import partial
-import configargparse
+import argparse
 import torch
 import torch.nn as nn
 import numpy as np
@@ -21,8 +21,7 @@ from photon_library import PhotonLibrary
 # run siren_test.py --output_dir result_72221 --batch_size 1 --experiment_name full_detector
 
 # Configure Arguments
-p = configargparse.ArgumentParser()
-p.add('-c', '--config_filepath', required=False, is_config_file=True, help='Path to config file.')
+p = argparse.ArgumentParser()
 
 p.add_argument('--output_dir', type=str, default='./results', help='root for logging outputs')
 p.add_argument('--experiment_name', type=str, required=True,
@@ -107,7 +106,7 @@ for s in range(full_data.shape[0]):
     coord_real = {'coords': coord_real}
 
     print('Assigning Model...')
-    model = modules.Siren(in_features=3, out_features=1, hidden_features=256, hidden_layers=1, outermost_linear=True)
+    model = modules.Siren(in_features=3, out_features=180, hidden_features=256, hidden_layers=1, outermost_linear=True, omega=5)
     model = model.float()
     model = nn.DataParallel(model, device_ids=device)
     model.cuda()
