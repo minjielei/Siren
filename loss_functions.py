@@ -1,5 +1,5 @@
 import torch
-import diff_operators, utils
+import diff_operators
 
 
 def image_mse(model_output, gt):

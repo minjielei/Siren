@@ -2,8 +2,6 @@ import torch
 from torch import nn
 
 import numpy as np
-import math
-
 
 class Sine(nn.Module):
     def __init__(self, in_features, out_features, first_layer, bias=True, omega=30):
@@ -12,14 +10,10 @@ class Sine(nn.Module):
         self.first_layer = first_layer
         self.in_features = in_features
         self.linear = nn.Linear(in_features, out_features, bias=bias)
-        
 
-    def forward(self, input):
-        # See paper sec. 3.2, final paragraph, and supplement Sec. 1.5 for discussion of factor 30
-        return torch.sin(self.omega * self.linear(input))
+        self.init_weights()
 
-
-    def sine_init(self):
+    def init_weights(self):
         with torch.no_grad():
             if self.first_layer:
                 self.linear.weight.uniform_(-1 / self.in_features, 1 / self.in_features)
@@ -27,6 +21,9 @@ class Sine(nn.Module):
                 # See supplement Sec. 1.5 for discussion of factor 30
                 self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega, np.sqrt(6 / self.in_features) / self.omega)
 
+    def forward(self, input):
+        # See paper sec. 3.2, final paragraph, and supplement Sec. 1.5 for discussion of factor 30
+        return torch.sin(self.omega * self.linear(input))
 
 class Siren(nn.Module):
     def __init__(self, in_features, hidden_features, hidden_layers, out_features, outermost_linear=False, omega=30):

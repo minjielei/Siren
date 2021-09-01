@@ -51,22 +51,20 @@ def get_mgrid(data_shape):
 
                             
 class DataWrapper(DataLoader):
-    def __init__(self, dataset, data_shape, gt, compute_diff=None):
-        self.dataset = dataset
+    def __init__(self, data_shape, gt, compute_diff=None):
+        # self.dataset = dataset
         self.compute_diff = compute_diff
         self.mgrid = get_mgrid(data_shape)
         self.gt = gt
-        self.data_shape = data_shape
-
         
     def __len__(self):
-        return self.data_shape[0]
+        return self.mgrid.shape[0]
     
     def __getitem__(self, idx):
-        in_dict = {'idx': idx, 'coords': self.mgrid}
-    
-        return in_dict, self.gt
-    
+        in_dict = {'idx': idx, 'coords': self.mgrid[idx]}
+        gt_dict = {'idx': idx, 'coords': self.gt[idx]}
+
+        return in_dict, gt_dict
     
 
 def square_matrix(square):

@@ -7,12 +7,12 @@ import time
 import numpy as np
 import os
 import shutil
-import loss_functions, utils
+import utils
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 
 
-def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, data_shape, loss_fn, loss_schedules=None, weight=1):
+def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, data_shape, loss_fn, loss_schedules=None):
 
     optim = torch.optim.Adam(lr=lr, params=model.parameters())
 
@@ -60,9 +60,7 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
         for step, (model_input, gt) in enumerate(train_dataloader):
             start_time = time.time()
             
-            
             model_input = {key: value.cuda() for key, value in model_input.items()}
-
             model_output = model(model_input['coords'])
             
             # Smooth every 1000 steps
@@ -109,7 +107,7 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     
     # TODO: migrate to utils file
     #Plot and save loss
-    x_steps = np.linspace(0, total_steps, num=total_steps)
+    x_steps = np.linspace(0, epochs, num=epochs)
     plt.figure(tight_layout=True)
     plt.plot(x_steps, train_losses)
     plt.ylabel('Loss')
@@ -125,10 +123,12 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
           gt['coords'].cpu().detach().numpy(), 
           (data_shape[0], data_shape[1], data_shape[2], -1)
         )
+    ground_truth_video = np.expand_dims(np.sum(ground_truth_video, axis = -1), axis=-1)
     predict_video = np.reshape(
             model_output['model_out'].cpu().detach().numpy(), 
             (data_shape[0], data_shape[1], data_shape[2], -1)
         )
+    predict_video = np.expand_dims(np.sum(predict_video, axis = -1), axis=-1)
     
     # Plot pred plots
     for step in range(predict_video.shape[0]):
