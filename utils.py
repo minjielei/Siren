@@ -1,7 +1,9 @@
 import os, glob
 import numpy as np
-from torch.utils.data import DataLoader
 import torch
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+from PIL import Image, ImageDraw
 
 
 def detach_tensor(tensor_array, data_shape): 
@@ -29,32 +31,71 @@ def attach_tensor(numpy_array):
 
     return new_tensor
 
+def plot_losses(total_steps, train_losses, filename):
+    x_steps = np.linspace(0, total_steps, num=total_steps)
+    plt.figure(tight_layout=True)
+    plt.plot(x_steps, train_losses)
+    plt.ylabel('Loss')
+    plt.yscale('log')
+    plt.xlabel('Iteration')
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    plt.clf()
 
-def write_result_img(experiment_name, filename, img):
-    root_path = '/image_results/'
-    trgt_dir = os.path.join(root_path, experiment_name)
+def plot_pred_vs_gt(pred, gt, filename):
+    plt.figure(tight_layout=True)
+    plt.scatter(gt, pred)        
+    plt.xlabel('Truth')
+    plt.ylabel('Pred')
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    plt.clf()
 
-    img = img.detach().cpu().numpy()
-    np.save(os.path.join(trgt_dir, filename), img)
-    
+def plot_hist_overlap(pred, gt, filename):
+    calc = (gt - pred)/(2*(gt + pred))
+    plt.hist(calc.flatten(), alpha=0.5)
+    plt.xlabel('asymmetry')
+    plt.ylabel('samples')
+    plt.yscale('log')
+    plt.savefig(filename)
+    plt.clf()
 
+def draw_img(predict_video, ground_truth_video, model_dir):
+    diff = np.sum(abs(ground_truth_video - predict_video), axis=(1,2,3))
+    ground_truth_video = np.uint8((ground_truth_video * 1.0 + 0.5) * 255)
+    predict_video = np.uint8((predict_video * 1.0 + 0.5) * 255)
+    render_video = np.concatenate((ground_truth_video, predict_video), axis=1)
 
-def get_mgrid(data_shape):
-    x = np.linspace(0, data_shape[0] - 1, data_shape[0])
-    y = np.linspace(0, data_shape[1] - 1, data_shape[1])
-    z = np.linspace(0, data_shape[2] - 1, data_shape[2])
+    im_name = os.path.join(model_dir, 'img.png')
+    gt_name = os.path.join(model_dir, 'gt_img.png')
+    pred_name = os.path.join(model_dir, 'pred_img.png')
+
+    im_render = Image.fromarray(np.squeeze(render_video, -1) , 'L').convert('RGB')
+    gt_im = Image.fromarray(np.squeeze(ground_truth_video,-1), 'L').convert('RGB')
+    pred_im = Image.fromarray(np.squeeze(predict_video,-1), 'L').convert('RGB')
+
+    gt_draw = ImageDraw.Draw(gt_im)
+    pred_draw = ImageDraw.Draw(pred_im)
+    draw = ImageDraw.Draw(im_render)
+    draw.text((0, 0), "{:.2f}".format(diff), (255,0,0))
+
+    im_render.save(im_name)
+    gt_im.save(gt_name)
+    pred_im.save(pred_name)
+
+def get_mgrid(plib_shape, plib_min, plib_max):
+    x = np.linspace(0, plib_shape[0] - 1, plib_shape[0])
+    y = np.linspace(0, plib_shape[1] - 1, plib_shape[1])
+    z = np.linspace(0, plib_shape[2] - 1, plib_shape[2])
     
     coordx, coordy, coordz = np.meshgrid(x, y, z)
     coord = np.reshape(np.stack([coordx, coordy, coordz], -1), (-1, 3))
+    coord = plib_min + (plib_max - plib_min) / plib_shape * (coord + 0.5)
 
     return coord
-
                             
 class DataWrapper(DataLoader):
-    def __init__(self, data_shape, gt, compute_diff=None):
+    def __init__(self, plib_shape, plib_min, plib_max, gt):
         # self.dataset = dataset
-        self.compute_diff = compute_diff
-        self.mgrid = get_mgrid(data_shape)
+        self.mgrid = get_mgrid(plib_shape, plib_min, plib_max)
         self.gt = gt
         
     def __len__(self):
@@ -164,16 +205,17 @@ def load_checkpoint(model, optimizer, filename='checkpoint.pth'):
     if os.path.isfile(filename):
         print("=> loading checkpoint '{}'".format(filename))
         checkpoint = torch.load(filename)
+        total_steps = checkpoint['step']
         start_epoch = checkpoint['epoch']
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         losslogger = checkpoint['loss']
-        print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(filename, checkpoint['epoch']))
+        print("=> loaded checkpoint '{}' (epoch {}, steps {})"
+                  .format(filename, checkpoint['epoch'], checkpoint['step']))
     else:
         print("=> no checkpoint found at '{}'".format(filename))
 
-    return model, optimizer, start_epoch, losslogger
+    return model, optimizer, total_steps, start_epoch, losslogger
 
 
 def find_latest_checkpoint(model_dir):
