@@ -27,13 +27,13 @@ p.add_argument('--experiment_name', type=str, required=True,
 
 # General training options
 p.add_argument('--batch_size', type=int, default=100)
-p.add_argument('--lr', type=float, default=1e-4, help='learning rate. default=5e-5') #5e-6 for FH
-p.add_argument('--num_epochs', type=int, default=100,
+p.add_argument('--lr', type=float, default=5e-5, help='learning rate. default=5e-5') #5e-6 for FH
+p.add_argument('--num_epochs', type=int, default=2000,
                help='Number of epochs to train for.')
 
 p.add_argument('--epochs_til_ckpt', type=int, default=10,
                help='Time interval in seconds until checkpoint is saved.')
-p.add_argument('--steps_til_summary', type=int, default=10,
+p.add_argument('--steps_til_summary', type=int, default=1000,
                help='Time interval in seconds until tensorboard summary is saved.')
 
 p.add_argument('--checkpoint_path', default=None, help='Checkpoint to trained model.')
@@ -65,15 +65,15 @@ print('Cuda finished')
 data.requires_grad = False
 
 print('Assigning Model...')
-model = modules.Siren(in_features=3, out_features=180, hidden_features=256, hidden_layers=1, outermost_linear=True, omega=5)
+model = modules.Siren(in_features=3, out_features=180, hidden_features=256, hidden_layers=2, outermost_linear=True, omega=30)
 model = model.float()
 model = nn.DataParallel(model, device_ids=device)
 model.cuda()
 
-train_data = utils.DataWrapper(plib.NumVoxels(), plib.BoundaryMin(), plib.BoundaryMax(), data)
+train_data = utils.DataWrapper(plib.NumVoxels(), data)
 dataloader = DataLoader(train_data, shuffle=True, batch_size=opt.batch_size, pin_memory=False, num_workers=0)
 
-loss = partial(loss_functions.image_mse)
+loss = partial(loss_functions.image_l1)
 
 print('Training...')
 training.train(model=model, train_dataloader=dataloader, epochs=opt.num_epochs, lr=opt.lr,

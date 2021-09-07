@@ -242,7 +242,16 @@ class PhotonLibrary(object):
           Length 3 floating point array noting the position along xyz axis
         '''    
         return self._min + (self._max - self._min) / self.shape * (axis_id + 0.5)
-    
+
+    def Position2AxisID(self, pos):
+        '''
+        Takes a xyz position (x,y,z) and converts to a axis ID (discretized location along xyz axis)
+        INPUT
+          pos - Length 3 floating point array noting the position along xyz axis
+        RETURN
+          axis_id - The axis ID in an integer array (ix,iy,iz)s
+        ''' 
+        return (pos - self._min) / (self._max - self._min) * self.shape - 0.5
     
     def Position2Features(self, pos, ch=None, use_world_coordinate=False):
         '''

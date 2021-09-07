@@ -81,21 +81,20 @@ def draw_img(predict_video, ground_truth_video, model_dir):
     gt_im.save(gt_name)
     pred_im.save(pred_name)
 
-def get_mgrid(plib_shape, plib_min, plib_max):
+def get_mgrid(plib_shape):
     x = np.linspace(0, plib_shape[0] - 1, plib_shape[0])
     y = np.linspace(0, plib_shape[1] - 1, plib_shape[1])
     z = np.linspace(0, plib_shape[2] - 1, plib_shape[2])
     
     coordx, coordy, coordz = np.meshgrid(x, y, z)
     coord = np.reshape(np.stack([coordx, coordy, coordz], -1), (-1, 3))
-    coord = plib_min + (plib_max - plib_min) / plib_shape * (coord + 0.5)
 
     return coord
                             
 class DataWrapper(DataLoader):
-    def __init__(self, plib_shape, plib_min, plib_max, gt):
+    def __init__(self, plib_shape, gt):
         # self.dataset = dataset
-        self.mgrid = get_mgrid(plib_shape, plib_min, plib_max)
+        self.mgrid = get_mgrid(plib_shape)
         self.gt = gt
         
     def __len__(self):

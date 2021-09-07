@@ -12,7 +12,6 @@ import utils
 def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, data_shape, loss_fn, loss_schedules=None):
 
     optim = torch.optim.Adam(lr=lr, params=model.parameters())
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, min_lr=5e-6)
 
     epoch_start = 0
     total_steps = 0
@@ -40,26 +39,6 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     writer = SummaryWriter(summaries_dir)
 
     for epoch in range(epoch_start, epochs):
-        if not epoch % epochs_til_checkpoint and epoch:
-            print('epoch:', epoch )
-
-            torch.save({
-                        'step': total_steps,
-                        'epoch': epoch,
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optim.state_dict(),
-                        'loss': train_losses,
-                        },  os.path.join(checkpoints_dir, 'model_epoch_%04d.pth' % epoch))
-
-            plt_name = os.path.join(checkpoints_dir, 'total_loss_epoch_%04d.png' % epoch)
-            utils.plot_losses(total_steps, train_losses, plt_name)
-
-            ground_truth = np.sum(gt['coords'].cpu().detach().numpy(), axis = -1)
-            pred = np.sum(model_output['model_out'].cpu().detach().numpy(), axis = -1)
-            plt_name = os.path.join(checkpoints_dir, 'pred_vs_truth_epoch_%04d.png' % epoch)
-            utils.plot_pred_vs_gt(pred, ground_truth, plt_name)
-            plt_name = os.path.join(checkpoints_dir, 'asym_epoch_%04d.png' % epoch)
-            utils.plot_hist_overlap(pred, ground_truth, plt_name)
 
         for step, (model_input, gt) in enumerate(train_dataloader):
             
@@ -99,9 +78,29 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
             train_loss.retain_grad()
             train_loss.backward()
             optim.step()
-            scheduler.step(train_loss)
 
             total_steps += 1
+
+        if not epoch % epochs_til_checkpoint and epoch:
+            print('epoch:', epoch )
+
+            torch.save({
+                        'step': total_steps,
+                        'epoch': epoch,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optim.state_dict(),
+                        'loss': train_losses,
+                        },  os.path.join(checkpoints_dir, 'model_epoch_%04d.pth' % epoch))
+
+            plt_name = os.path.join(checkpoints_dir, 'total_loss_epoch_%04d.png' % epoch)
+            utils.plot_losses(total_steps, train_losses, plt_name)
+
+            ground_truth = gt['coords'].cpu().detach().numpy().flatten()
+            pred = model_output['model_out'].cpu().detach().numpy().flatten()
+            plt_name = os.path.join(checkpoints_dir, 'pred_vs_truth_epoch_%04d.png' % epoch)
+            utils.plot_pred_vs_gt(pred, ground_truth, plt_name)
+            plt_name = os.path.join(checkpoints_dir, 'asym_epoch_%04d.png' % epoch)
+            utils.plot_hist_overlap(pred, ground_truth, plt_name)
 
     torch.save(model.state_dict(),
                os.path.join(checkpoints_dir, 'model_final.pth'))
@@ -113,8 +112,8 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     utils.plot_losses(total_steps, train_losses, plt_name)
 
     # Make images and plots
-    ground_truth = np.sum(gt['coords'].cpu().detach().numpy(), axis = -1)
-    pred = np.sum(model_output['model_out'].cpu().detach().numpy(), axis = -1)
+    ground_truth = gt['coords'].cpu().detach().numpy().flatten()
+    pred = model_output['model_out'].cpu().detach().numpy().flatten()
     # ground_truth_video = np.reshape(ground_truth, (data_shape[0], data_shape[1], data_shape[2], -1))
     # predict_video = np.reshape(pred, (data_shape[0], data_shape[1], data_shape[2], -1))
     
