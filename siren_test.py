@@ -31,7 +31,7 @@ p.add_argument('--lr', type=float, default=5e-5, help='learning rate. default=5e
 p.add_argument('--num_epochs', type=int, default=2000,
                help='Number of epochs to train for.')
 
-p.add_argument('--epochs_til_ckpt', type=int, default=10,
+p.add_argument('--epochs_til_ckpt', type=int, default=100,
                help='Time interval in seconds until checkpoint is saved.')
 p.add_argument('--steps_til_summary', type=int, default=1000,
                help='Time interval in seconds until tensorboard summary is saved.')
@@ -50,12 +50,10 @@ start = time.time()
 # Load plib dataset
 print('Load data ...')
 plib = PhotonLibrary()
-data = plib.numpy() 
-data_shape = data.shape
+coord, data = plib.numpy() 
 
 start2 = time.time()
 
-data = np.reshape(data, (-1, data.shape[-1]))
 data = -np.log(data+1e-7)
 data = (data - np.amin(data)) / (np.amax(data) - np.amin(data))
 
@@ -70,15 +68,15 @@ model = model.float()
 model = nn.DataParallel(model, device_ids=device)
 model.cuda()
 
-train_data = utils.DataWrapper(plib.NumVoxels(), data)
+train_data = utils.DataWrapper(coord, data)
 dataloader = DataLoader(train_data, shuffle=True, batch_size=opt.batch_size, pin_memory=False, num_workers=0)
 
-loss = partial(loss_functions.image_l1)
+loss = partial(loss_functions.image_mse)
 
 print('Training...')
 training.train(model=model, train_dataloader=dataloader, epochs=opt.num_epochs, lr=opt.lr,
                 steps_til_summary=opt.steps_til_summary, epochs_til_checkpoint=opt.epochs_til_ckpt,
-                model_dir=output_dir, data_shape=data_shape, loss_fn=loss)
+                model_dir=output_dir, loss_fn=loss)
 
 end = time.time()
 print('Training Time: {}'.format(end-start2))

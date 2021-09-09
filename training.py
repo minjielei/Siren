@@ -9,7 +9,7 @@ import os
 import shutil
 import utils
 
-def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, data_shape, loss_fn, loss_schedules=None):
+def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, loss_fn, loss_schedules=None):
 
     optim = torch.optim.Adam(lr=lr, params=model.parameters())
 

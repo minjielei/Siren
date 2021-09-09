@@ -43,9 +43,15 @@ def plot_losses(total_steps, train_losses, filename):
 
 def plot_pred_vs_gt(pred, gt, filename):
     plt.figure(tight_layout=True)
-    plt.scatter(gt, pred)        
+    plt.scatter(gt*16, pred*16)
+    plt.grid()        
     plt.xlabel('Truth')
     plt.ylabel('Pred')
+
+    min_scale = min(plt.gca().get_xlim()[0], plt.gca().get_ylim()[0])
+    max_scale = max(plt.gca().get_xlim()[1], plt.gca().get_ylim()[1])
+    plt.xlim(min_scale, max_scale)
+    plt.ylim(min_scale, max_scale)
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     plt.clf()
 
@@ -81,10 +87,10 @@ def draw_img(predict_video, ground_truth_video, model_dir):
     gt_im.save(gt_name)
     pred_im.save(pred_name)
 
-def get_mgrid(plib_shape):
-    x = np.linspace(0, plib_shape[0] - 1, plib_shape[0])
-    y = np.linspace(0, plib_shape[1] - 1, plib_shape[1])
-    z = np.linspace(0, plib_shape[2] - 1, plib_shape[2])
+def get_mgrid(data_shape):
+    x = np.linspace(0, 1, data_shape[0])
+    y = np.linspace(0, 1, data_shape[1])
+    z = np.linspace(0, 1, data_shape[2])
     
     coordx, coordy, coordz = np.meshgrid(x, y, z)
     coord = np.reshape(np.stack([coordx, coordy, coordz], -1), (-1, 3))
@@ -92,10 +98,10 @@ def get_mgrid(plib_shape):
     return coord
                             
 class DataWrapper(DataLoader):
-    def __init__(self, plib_shape, gt):
+    def __init__(self, coord, data):
         # self.dataset = dataset
-        self.mgrid = get_mgrid(plib_shape)
-        self.gt = gt
+        self.mgrid = coord
+        self.gt = data
         
     def __len__(self):
         return self.mgrid.shape[0]
