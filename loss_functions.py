@@ -23,11 +23,13 @@ def image_mse_TV_prior(k1, model, model_output, gt):
 
 
 def image_weighted_mse_TV_prior(k1, model, model_output, gt, weight):
-    coords_rand = 2 * (torch.rand((model_output['model_in'].shape[0],
-                                   model_output['model_in'].shape[1] // 2,
-                                   model_output['model_in'].shape[2])).cuda() - 0.5)
+    coords_rand = torch.rand((model_output['model_in'].shape[0] // 2,
+                                   model_output['model_in'].shape[1])).cuda()
     rand_input = {'coords': coords_rand}
     rand_output = model(rand_input['coords'])
+
+    mask = ((gt['coords']-1e-6) * len(weight)).long()
+    weight = weight[mask]
 
     return {'img_loss': (weight * (model_output['model_out'] - gt['coords']) ** 2).mean(),
             'prior_loss': k1 * (torch.abs(diff_operators.gradient(
