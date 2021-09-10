@@ -9,7 +9,7 @@ import os
 import shutil
 import utils
 
-def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, loss_fn, loss_schedules=None, k1=None, weight=1):
+def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, loss_fn, loss_schedules=None, k1=None, weight=None):
 
     optim = torch.optim.Adam(lr=lr, params=model.parameters())
 
@@ -49,7 +49,7 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
 #             if not step%1000-500:
 #                 model_output['model_out'] = utils.attach_tensor(utils.box_blur(utils.detach_tensor(mdoel_output, data_shape)))
             
-            losses = loss_fn(k1, model, model_output, gt, weight)
+            losses = loss_fn(weight, model_output, gt)
     
             train_loss = 0.
             for loss_name, loss in losses.items():
