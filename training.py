@@ -91,6 +91,9 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
                         'optimizer_state_dict': optim.state_dict(),
                         'loss': train_losses,
                         },  os.path.join(checkpoints_dir, 'model_epoch_%04d.pth' % epoch))
+            
+            np.savetxt(os.path.join(checkpoints_dir, 'train_losses_epoch_%04d.txt' % epoch),
+                       np.array(train_losses))
 
             plt_name = os.path.join(checkpoints_dir, 'total_loss_epoch_%04d.png' % epoch)
             utils.plot_losses(total_steps, train_losses, plt_name)
@@ -99,8 +102,6 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
             pred = model_output['model_out'].cpu().detach().numpy().flatten()
             plt_name = os.path.join(checkpoints_dir, 'pred_vs_truth_epoch_%04d.png' % epoch)
             utils.plot_pred_vs_gt(pred, ground_truth, plt_name)
-            plt_name = os.path.join(checkpoints_dir, 'asym_epoch_%04d.png' % epoch)
-            utils.plot_hist_overlap(pred, ground_truth, plt_name)
 
     torch.save(model.state_dict(),
                os.path.join(checkpoints_dir, 'model_final.pth'))
