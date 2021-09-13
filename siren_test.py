@@ -52,7 +52,8 @@ start = time.time()
 # Load plib dataset
 print('Load data ...')
 plib = PhotonLibrary()
-coord, data = plib.numpy() 
+coord, data = plib.numpy()
+coord = 2 * (coord - 0.5) 
 
 start2 = time.time()
 
@@ -65,7 +66,7 @@ print('Cuda finished')
 data.requires_grad = False
 
 print('Assigning Model...')
-model = modules.Siren(in_features=3, out_features=180, hidden_features=256, hidden_layers=2, outermost_linear=True, omega=30)
+model = modules.Siren(in_features=3, out_features=180, hidden_features=256, hidden_layers=5, outermost_linear=True, omega=30)
 model = model.float()
 model = nn.DataParallel(model, device_ids=device)
 model.cuda()

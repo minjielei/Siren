@@ -20,13 +20,13 @@ class PhotonLibrary(object):
             self.shape = np.array(f['numvox'])
 
     def numpy(self):
-        x = np.linspace(0, 1, self.shape[0])
-        y = np.linspace(0, 1, self.shape[1])
-        z = np.linspace(0, 1, self.shape[2])
+        x = np.linspace(0, 1, self.shape[0], endpoint=False)
+        y = np.linspace(0, 1, self.shape[1], endpoint=False)
+        z = np.linspace(0, 1, self.shape[2], endpoint=False)
 
         coordx, coordy, coordz = np.meshgrid(x, y, z)
         coord = np.reshape(np.stack([coordx, coordy, coordz], -1), (-1, 3))
-        axis = (coord * (self.shape-1)).astype(int)
+        axis = (coord * self.shape).astype(int)
         data = self.VisibilityFromAxisID(axis)
 
         return coord, data
@@ -46,7 +46,7 @@ class PhotonLibrary(object):
         array_ctor = np.array if use_numpy else torch.Tensor
         
         pos = np.random.uniform(size=num_points*3).reshape(num_points,3)
-        axis_id = (pos[:] * (self.shape-1)).astype(np.int32)
+        axis_id = (pos[:] * self.shape).astype(np.int32)
         
         if use_world_coordinate:
             pos = array_ctor(self.AxisID2Position(axis_id))
