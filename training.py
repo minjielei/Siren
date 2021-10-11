@@ -22,6 +22,7 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
         if val == 'y':
             filename = utils.find_latest_checkpoint(model_dir)
             model, optim, total_steps, epoch_start, train_losses =  utils.load_checkpoint(model, optim, filename)
+            print(optim.param_groups[0]['lr'])
             if val == 'n':
                 shutil.rmtree(model_dir)
 
@@ -37,6 +38,8 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
         os.makedirs(checkpoints_dir)
 
     writer = SummaryWriter(summaries_dir)
+    
+#     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor = 0.5, patience=100, min_lr=5e-6)
 
     for epoch in range(epoch_start, epochs):
 
@@ -78,6 +81,7 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
             train_loss.retain_grad()
             train_loss.backward()
             optim.step()
+#             scheduler.step(train_loss)
 
             total_steps += 1
 
@@ -98,10 +102,10 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
             plt_name = os.path.join(checkpoints_dir, 'total_loss_epoch_%04d.png' % epoch)
             utils.plot_losses(total_steps, train_losses, plt_name)
 
-            ground_truth = gt['coords'].cpu().detach().numpy().flatten()
-            pred = model_output['model_out'].cpu().detach().numpy().flatten()
-            plt_name = os.path.join(checkpoints_dir, 'pred_vs_truth_epoch_%04d.png' % epoch)
-            utils.plot_pred_vs_gt(pred, ground_truth, plt_name)
+#             ground_truth = gt['coords'].cpu().detach().numpy()[:, 45]
+#             pred = model_output['model_out'].cpu().detach().numpy()[:, 45]
+#             plt_name = os.path.join(checkpoints_dir, 'pred_vs_truth_epoch_%04d.png' % epoch)
+#             utils.plot_pred_vs_gt(pred, ground_truth, plt_name)
 
     torch.save(model.state_dict(),
                os.path.join(checkpoints_dir, 'model_final.pth'))
@@ -113,11 +117,11 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     utils.plot_losses(total_steps, train_losses, plt_name)
 
     # Make images and plots
-    ground_truth = gt['coords'].cpu().detach().numpy().flatten()
-    pred = model_output['model_out'].cpu().detach().numpy().flatten()
+#     ground_truth = gt['coords'].cpu().detach().numpy()[:, 45]
+#     pred = model_output['model_out'].cpu().detach().numpy()[:, 45]
     # ground_truth_video = np.reshape(ground_truth, (data_shape[0], data_shape[1], data_shape[2], -1))
     # predict_video = np.reshape(pred, (data_shape[0], data_shape[1], data_shape[2], -1))
     
-    utils.plot_pred_vs_gt(pred, ground_truth, os.path.join(model_dir, 'pred_vs_truth.png'))
-    utils.plot_hist_overlap(pred, ground_truth, os.path.join(model_dir, 'asym.png'))  
+#     utils.plot_pred_vs_gt(pred, ground_truth, os.path.join(model_dir, 'pred_vs_truth.png'))
+#     utils.plot_hist_overlap(pred, ground_truth, os.path.join(model_dir, 'asym.png'))  
     # utils.draw_img(predict_video, ground_truth_video, model_dir)

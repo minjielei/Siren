@@ -195,8 +195,9 @@ def make_weights(in_tensor):
     weight imbalanced data.
     """
 
-    weight = torch.histc(in_tensor, bins=12, min = 0.0, max = 1.0)
-    weight = weight.max()/weight
+    weight = torch.histc(in_tensor, bins=128)
+    weight = (weight.max() / (weight+1e-6))
+    weight[-20:] = 1
     
     return weight
 

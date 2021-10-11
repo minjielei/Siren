@@ -57,6 +57,7 @@ coord = 2 * (coord - 0.5)
 
 start2 = time.time()
 
+# data = np.expand_dims(np.sum(data, -1), axis=-1)
 data = -np.log(data+1e-7)
 data = (data - np.amin(data)) / (np.amax(data) - np.amin(data))
 
@@ -66,7 +67,7 @@ print('Cuda finished')
 data.requires_grad = False
 
 print('Assigning Model...')
-model = modules.Siren(in_features=3, out_features=180, hidden_features=256, hidden_layers=5, outermost_linear=True, omega=30)
+model = modules.Siren(in_features=3, out_features=180, hidden_features=512, hidden_layers=5, outermost_linear=True, omega=30)
 model = model.float()
 model = nn.DataParallel(model, device_ids=device)
 model.cuda()
