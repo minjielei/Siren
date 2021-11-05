@@ -30,15 +30,38 @@ class PhotonLibrary(object):
                            )
         if ((self._pmt_pos < self._min) | (self._max < self._pmt_pos)).any():
             raise Exception('Some PMT positions are out of the volume bounds')
-        # Convert the PMT positions in a normalized coordinate (fractional position within the voxelized volume)
-#         self._pmt_pos = (self._pmt_pos - self._min) / (self._max - self._min)
+            
+        # correct for erros in plib file
+        self._max[0] += 10
+        self._min[0] += 10
 
-    def numpy(self):
+    def load_data(self, use_numpy=True):
+        '''
+        load coordinate and visibility data
+        '''
+        array_ctor = np.array if use_numpy else torch.Tensor
+        
         axis = self.VoxID2AxisID(np.arange(self._vis.shape[0]))
-        coord = (axis + 0.5) / self.shape
+        coord = (axis+0.5) / self.shape
         data = self.VisibilityFromAxisID(axis.astype(int))
 
-        return coord, data
+        return array_ctor(coord), array_ctor(data)
+    
+    def smear_visibility(self, bias):
+        '''
+        Apply Gaussian smearing to visibility values for inverse solving studies
+        '''
+        var = abs(np.random.normal(1.0, bias, len(self._vis)))
+        self._vis = self._vis * np.expand_dims(var, -1)
+        
+    def normalize_coord(self, coord):
+        return 2 * ((coord - self._min) / (self._max - self._min) - 0.5)
+    
+    def extend_coord(voxel_coord, pmt_coord):
+        """
+        extend 3d position coordinate with pmt coord
+        """
+        return torch.cat((voxel_coord.unsqueeze(dim=1).expand(-1, 180, -1), pmt_coord.unsqueeze(dim=0).expand(voxel_coord.shape[0], -1, -1)), dim=-1)
 
     def UniformSample(self,num_points=32,use_numpy=True,use_world_coordinate=False):
         '''

@@ -11,7 +11,7 @@ import utils
 
 def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, loss_fn, loss_schedules=None, k1=None, weight=None):
 
-    optim = torch.optim.Adam(lr=lr, params=model.parameters())
+    optim = torch.optim.AdamW(lr=lr, params=model.parameters(), amsgrad=True)
 
     epoch_start = 0
     total_steps = 0
