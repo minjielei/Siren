@@ -52,15 +52,15 @@ start = time.time()
 # Load plib dataset
 print('Load data ...')
 plib = PhotonLibrary()
-coord, data = plib.numpy()
+coord, data = plib.load_data(use_numpy=False)
 coord = 2 * (coord - 0.5) 
-# pmt_coord = torch.Tensor(plib.normalize_coord(plib._pmt_pos))
-# coord = plib.extend_coord(coord, pmt_coord)             
+pmt_coord = torch.Tensor(plib.normalize_coord(plib._pmt_pos))
+coord = plib.extend_coord(coord, pmt_coord)             
 
 start2 = time.time()
 
 data = -np.log10(data+1e-10) / 10
-# data = np.expand_dims(data, axis=-1)
+data = np.expand_dims(data, axis=-1)
 
 print('about to call cuda for first time...')
 data = torch.from_numpy(data.astype(np.float32)).cuda()
@@ -68,7 +68,7 @@ print('Cuda finished')
 data.requires_grad = False
 
 print('Assigning Model...')
-model = modules.Siren(in_features=3, out_features=180, hidden_features=512, hidden_layers=5, outermost_linear=True, omega=30)
+model = modules.Siren(in_features=6, out_features=1, hidden_features=256, hidden_layers=3, outermost_linear=True, omega=30)
 model = model.float()
 model = nn.DataParallel(model, device_ids=device)
 model.cuda()
