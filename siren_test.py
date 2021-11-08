@@ -52,15 +52,13 @@ start = time.time()
 # Load plib dataset
 print('Load data ...')
 plib = PhotonLibrary()
-coord, data = plib.numpy()
+coord, data = plib.load_data()
 coord = 2 * (coord - 0.5) 
-# pmt_coord = torch.Tensor(plib.normalize_coord(plib._pmt_pos))
-# coord = plib.extend_coord(coord, pmt_coord)             
 
 start2 = time.time()
 
-data = -np.log10(data+1e-10) / 10
-# data = np.expand_dims(data, axis=-1)
+data = -np.log(data+1e-7)
+data = (data - np.amin(data)) / (np.amax(data) - np.amin(data))
 
 print('about to call cuda for first time...')
 data = torch.from_numpy(data.astype(np.float32)).cuda()
@@ -76,7 +74,7 @@ model.cuda()
 train_data = utils.DataWrapper(coord, data)
 
 # Make weights
-weight = utils.make_weights(data.flatten(), 10)
+weight = utils.make_weights(data.flatten(), 12)
 weight.cuda()
 print('at the dataloader')
 
