@@ -28,7 +28,7 @@ p.add_argument('--experiment_name', type=str, required=True,
 # General training options
 p.add_argument('--batch_size', type=int, default=100)
 p.add_argument('--lr', type=float, default=5e-5, help='learning rate. default=5e-5') #5e-6 for FH
-p.add_argument('--num_epochs', type=int, default=2000,
+p.add_argument('--num_epochs', type=int, default=1000,
                help='Number of epochs to train for.')
 p.add_argument('--kl_weight', type=float, default=1e-1,
                help='Weight for l2 loss term on code vectors z (lambda_latent in paper).')
@@ -59,16 +59,16 @@ coord = plib.extend_coord(coord, pmt_coord)
 
 start2 = time.time()
 
-data = -np.log10(data+1e-10) / 10
-data = np.expand_dims(data, axis=-1)
+data = -torch.log(data+1e-7)
+data = ((data - torch.min(data)) / (torch.max(data) - torch.min(data))).unsqueeze(-1)
 
 print('about to call cuda for first time...')
-data = torch.from_numpy(data.astype(np.float32)).cuda()
+data = data.cuda()
 print('Cuda finished')
 data.requires_grad = False
 
 print('Assigning Model...')
-model = modules.Siren(in_features=6, out_features=1, hidden_features=256, hidden_layers=3, outermost_linear=True, omega=30)
+model = modules.Siren(in_features=6, out_features=1, hidden_features=512, hidden_layers=5, outermost_linear=True, omega=30)
 model = model.float()
 model = nn.DataParallel(model, device_ids=device)
 model.cuda()
@@ -76,7 +76,7 @@ model.cuda()
 train_data = utils.DataWrapper(coord, data)
 
 # Make weights
-weight = utils.make_weights(data.flatten(), 10)
+weight = utils.make_weights(data.flatten(), 12)
 weight.cuda()
 print('at the dataloader')
 

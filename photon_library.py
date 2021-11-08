@@ -57,7 +57,7 @@ class PhotonLibrary(object):
     def normalize_coord(self, coord):
         return 2 * ((coord - self._min) / (self._max - self._min) - 0.5)
     
-    def extend_coord(voxel_coord, pmt_coord):
+    def extend_coord(self, voxel_coord, pmt_coord):
         """
         extend 3d position coordinate with pmt coord
         """
